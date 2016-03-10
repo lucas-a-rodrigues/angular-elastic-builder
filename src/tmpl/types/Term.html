@@ -1,21 +1,20 @@
 <span class="elastic-term">
-  <select data-ng-model="rule.subType" class="form-control">
+  <select data-ng-model="rule.subType" data-ui-select2="uiSelectOptions">
     <!-- Term Options -->
-    <optgroup label="Text">
-      <option value="equals">Equals</option>
-      <option value="notEquals">! Equals</option>
+    <optgroup label="Texto">
+      <option value="equals">Igual</option>
+      <option value="notEquals">Diferente</option>
+      <option value="prefix">Come&ccedil;a</option>
+      <option value="contains">Cont&eacute;m</option>
     </optgroup>
 
     <!-- Generic Options -->
-    <optgroup label="Generic">
-      <option value="exists">Exists</option>
-      <option value="notExists">! Exists</option>
+    <optgroup label="Gen&eacute;rico">
+      <option value="exists">Existe</option>
+      <option value="notExists">N&atilde;o existe</option>
     </optgroup>
 
   </select>
-  <input
-    data-ng-if="inputNeeded()"
-    class="form-control"
-    data-ng-model="rule.value"
-    type="text">
+  <input class="form-control" type="text" data-ng-if="inputNeeded()"
+   data-ng-model="rule.value" />
 </span>

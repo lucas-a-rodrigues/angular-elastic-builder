@@ -7,53 +7,62 @@
  */
 
 (function(angular) {
-  'use strict';
+	'use strict';
 
-  var app = angular.module('angular-elastic-builder');
+	var app = angular.module('angular-elastic-builder');
 
-  app.directive('elasticType', [
+	app.directive('elasticType', [
 
-    function() {
-      return {
-        scope: {
-          type: '=elasticType',
-          rule: '=',
-          guide: '=',
-        },
+	function() {
+		return {
+			scope : {
+				type : '=elasticType',
+				rule : '=',
+				guide : '=',
+			},
 
-        template: '<ng-include src="getTemplateUrl()" />',
+			template : '<ng-include src="getTemplateUrl()" />',
 
-        link: function(scope) {
-          scope.getTemplateUrl = function() {
-            var type = scope.type;
-            if (! type) return;
+			link : function(scope) {
+				scope.getTemplateUrl = function() {
+					var type = scope.type;
+					if (!type) return;
 
-            type = type.charAt(0).toUpperCase() + type.slice(1);
+					type = type.charAt(0).toUpperCase() + type.slice(1);
+					
+					return 'angular-elastic-builder/types/' + type + '.html';
+				};
 
-            return 'angular-elastic-builder/types/' + type + '.html';
-          };
+				
+				scope.booleans = [{ value : 'S', description : 'Sim' },
+				                  { value : 'N', description : 'Não' }];
 
-          // This is a weird hack to make sure these are numbers
-          scope.booleans = [ 'False', 'True' ];
-          scope.booleansOrder = [ 'True', 'False' ];
+				scope.inputNeeded =	function() {
+					var needs =	[ 'equals', 'notEquals', 'prefix', 'contains', 'last', 'next',
+					           	  'gt', 'gte', 'lt', 'lte' ];
+					return ~needs.indexOf(scope.rule.subType);
+				};
 
-          scope.inputNeeded = function() {
-            var needs = [
-              'equals',
-              'notEquals',
+				scope.dateNeeded = function() {
+					var needs = [ 'equals', 'gt', 'gte', 'lt', 'lte' ];
+					return ~needs.indexOf(scope.rule.subType);
+				};
 
-              'gt',
-              'gte',
-              'lt',
-              'lte',
-            ];
+				scope.numberNeeded = function() {
+					var needs = [ 'last', 'next' ];
+					return ~needs.indexOf(scope.rule.subType);
+				};
 
-            return ~needs.indexOf(scope.rule.subType);
-          };
-        },
-      };
-    }
+			},
 
-  ]);
+			controller : function($scope) {
+				$scope.uiSelectOptions = {
+					dropdownAutoWidth : true
+				};
+			}
+		};
+	}
+
+	]);
 
 })(window.angular);

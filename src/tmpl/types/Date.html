@@ -1,10 +1,29 @@
 <span class="date-rule">
-  <select data-ng-model="rule.subType" class="form-control">
+  <select data-ng-model="rule.subType" data-ui-select2="uiSelectOptions">
 
-    <optgroup label="Generic">
-      <option value="exists">Exists</option>
-      <option value="notExists">! Exists</option>
+    <optgroup label="Per&iacute;odo">
+      <option value="last">Nos &uacute;ltimos</option>
+      <option value="next">Nos pr&oacute;ximos</option>
+    </optgroup>
+
+    <optgroup label="Data">
+      <option value="equals">=</option>
+      <option value="gt">&gt;</option>
+      <option value="gte">&ge;</option>
+      <option value="lt">&lt;</option>
+      <option value="lte">&le;</option>
+    </optgroup>
+
+    <optgroup label="Gen&eacute;rico">
+      <option value="exists">Existe</option>
+      <option value="notExists">N&atilde;o existe</option>
     </optgroup>
   </select>
+
+  <span data-ng-if="numberNeeded()"><input type="number" class="form-control"
+    data-ng-model="rule.value" min=0 size="3" /> dias</span>
+
+  <input type="text" class="form-control" data-ng-if="dateNeeded()" data-provide="datepicker" data-date-format="dd/mm/yyyy"
+    data-ng-model="rule.date" data-ng-init="init(rule.date,'')" />
 
 </span>

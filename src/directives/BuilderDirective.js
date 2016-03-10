@@ -58,8 +58,9 @@
              */
             scope.$watch('data.needsUpdate', function(curr) {
               if (! curr) return;
-
-              scope.filters = elasticQueryService.toFilters(data.query, scope.data.fields);
+              if (isNotJsonValid(data.query.query.constant_score.filter.and)) throw new Error('Define a base query like: query.constant_score.filter.and = []');
+              
+              scope.filters = elasticQueryService.toFilters(data.query.query.constant_score.filter.and, scope.data.fields);
               scope.data.needsUpdate = false;
             });
 
@@ -68,9 +69,19 @@
              */
             scope.$watch('filters', function(curr) {
               if (! curr) return;
-
-              data.query = elasticQueryService.toQuery(scope.filters, scope.data.fields);
+              
+              var filters = elasticQueryService.toQuery(scope.filters, scope.data.fields);              
+              data.query = { query : { constant_score : { filter : { and : filters }}}};
             }, true);
+            
+            var isNotJsonValid = function(json) {
+            	try {
+            		JSON.parse(JSON.stringify(json));
+            	} catch(e) {
+            		return true;
+            	}
+            	return false;
+            }
           }
         };
       }

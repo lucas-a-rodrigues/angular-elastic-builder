@@ -1,8 +1,9 @@
 {
   "name": "angular-elastic-builder",
-  "homepage": "https://github.com/dncrews/angular-elastic-builder",
+  "homepage": "https://github.com/lucas-a-rodrigues/angular-elastic-builder",
   "authors": [
-    "Dan Crews <crewsd@gmail.com>"
+    "Dan Crews <crewsd@gmail.com>",
+    "Lucas Rodrigues <lucasmoc@gmail.com>"
   ],
   "description": "Angular Module for building an Elasticsearch Query",
   "main": "dist/angular-elastic-builder.js",

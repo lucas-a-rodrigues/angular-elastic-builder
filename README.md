@@ -17,6 +17,7 @@ It's still pretty early on, as it doesn't support a whole lot of use-cases, but 
 
 ### Dependency
 Notice: this plugin requires the [Angular Recursion](https://github.com/marklagendijk/angular-recursion) module.
+Update: The original plugin was updated to use Date and permit select multiple itens for termsQuery. This requires the directives Bootstrap-Datepicker3 and UI-Select2. 
 
 ### Installation
 First you'll need to download the [dist](https://github.com/dncrews/angular-elastic-builder/tree/master/dist) files and include this JS file to your app (don't forget to substitute `x.x.x` with the current version number), along with the RecursionHelper, if you're not already using it.
@@ -50,7 +51,7 @@ $scope.elasticBuilderData.query = [];
 $scope.elasticBuilderData.fields = {
   'some.number.field': { type: 'number' },
   'some.term.field': { type: 'term' },
-  'some.boolean.field': { type: 'term', subType: 'boolean' },
+  'some.boolean.field': { type: 'boolean' },
   'multi.selector': { type: 'multi', choices: [ 'AZ', 'CA', 'CT' ]}
 };
 ```
@@ -75,7 +76,7 @@ Which represents the following Elasticsearch Query:
   },
   {
     "term": {
-      "some.boolean.field": "0"
+      "some.boolean.field": "S"
     }
   },
   {
@@ -114,8 +115,10 @@ Which represents the following Elasticsearch Query:
     - Currently supported:
       - `'number'`: in addition to Generic Options, gets "&gt;", "&ge;", "&lt;", "&le;", "="
       - `'term'`: in addition to Generic Options, gets "Equals" and "! Equals"
-      - `'boolean'`: Does not get Generic Options. Gets `true` and `false`
-        - These are actually "equals 0" and "equals 1" for the database query
+      - `'date'`: in addition to Generic Options, gets "Equals", "Last x days", "Next x days"
+      - `'multi'`: in addition to Generic Options, gets "Equals" and "! Equals"
+      - `'boolean'`: in addition to Generic Options, gets "Equals"
+        - These are actually "equals N" and "equals S" for the database query
 
 Generic Options
   - In addition to any specific options for fields, all fields also get a "Exists" and "! Exists" option

@@ -24,12 +24,20 @@
                 'lt': 850
               }
             }
+          },
+          {
+            'range': {
+              'test.date': {
+                'gte': '2016-03-10 00:00:00',
+                'lte': '2016-03-10 23:59:59'
+              }
+            }
           }
         ]
       },
       {
         'term': {
-          'test.boolean': 0
+          'test.boolean': 'S'
         }
       },
       {
@@ -56,7 +64,8 @@
     data.fields = {
       'test.number': { type: 'number', minimum: 650 },
       'test.term': { type: 'term' },
-      'test.boolean': { type: 'term', subType: 'boolean' },
+      'test.boolean': { type: 'boolean' },
+      'test.date': { type: 'date' },
       'test.state.multi': { type: 'multi', choices: [ 'AZ', 'CA', 'CT' ]}
     };
 

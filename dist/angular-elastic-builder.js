@@ -85,8 +85,9 @@
              */
             scope.$watch('data.needsUpdate', function(curr) {
               if (! curr) return;
-
-              scope.filters = elasticQueryService.toFilters(data.query, scope.data.fields);
+              if (isNotJsonValid(data.query.query.constant_score.filter.and)) throw new Error('Define a base query like: query.constant_score.filter.and = []');
+              
+              scope.filters = elasticQueryService.toFilters(data.query.query.constant_score.filter.and, scope.data.fields);
               scope.data.needsUpdate = false;
             });
 
@@ -95,9 +96,19 @@
              */
             scope.$watch('filters', function(curr) {
               if (! curr) return;
-
-              data.query = elasticQueryService.toQuery(scope.filters, scope.data.fields);
+              
+              var filters = elasticQueryService.toQuery(scope.filters, scope.data.fields);              
+              data.query = { query : { constant_score : { filter : { and : filters }}}};
             }, true);
+            
+            var isNotJsonValid = function(json) {
+            	try {
+            		JSON.parse(JSON.stringify(json));
+            	} catch(e) {
+            		return true;
+            	}
+            	return false;
+            }
           }
         };
       }
@@ -219,39 +230,68 @@
  */
 
 (function(angular) {
-  'use strict';
+	'use strict';
 
-  var app = angular.module('angular-elastic-builder');
+	var app = angular.module('angular-elastic-builder');
 
-  app.directive('elasticBuilderRule', [
+	app.directive('elasticBuilderRule', [
 
-    function elasticBuilderRule() {
-      return {
-        scope: {
-          elasticFields: '=',
-          rule: '=elasticBuilderRule',
-          onRemove: '&',
-        },
+	function elasticBuilderRule() {
+		return {
+			scope : {
+				elasticFields : '=',
+				rule : '=elasticBuilderRule',
+				onRemove : '&',
+			},
 
-        templateUrl: 'angular-elastic-builder/RuleDirective.html',
+			templateUrl : 'angular-elastic-builder/RuleDirective.html',
 
-        link: function(scope) {
-          scope.getType = function() {
-            var fields = scope.elasticFields
-              , field = scope.rule.field;
+			link : function(scope) {
 
-            if (! fields || ! field) return;
+				scope.getType = function() {
+					var fields = scope.elasticFields, field = scope.rule.field;
 
-            if (fields[field].subType === 'boolean') return 'boolean';
+					if (!fields || !field) return;
 
-            return fields[field].type;
-          };
-        }
-      };
-    }
+					return fields[field].type;
+				};
 
-  ]);
+				scope.initRule = function() {
+					var rule = scope.rule;
+					rule.subType = 'equals';
+					
+					switch (scope.getType()) {
+						case 'term':
+						case 'boolean': 
+							rule.value = '';
+							break;
+						case 'number':
+							rule.value = 0;
+							break;
+						case 'date':
+							rule.value = 0;
+							rule.date = today();
+							break;
+						case 'multi':
+							rule.value = [];
+							break;
+						default:
+							throw new Error('Unexpected type!');
+					}
+				};
+				
+				var today = function() {
+					var date = new Date();
+					return date.getDate() + '/' + (date.getMonth() + 1) + '/' + date.getFullYear();
+				};
 
+			},
+
+			controller : function($scope) {
+				$scope.uiSelectOptions = { dropdownAutoWidth : true };
+			}
+		};
+	} ]);
 })(window.angular);
 
 /**
@@ -263,54 +303,63 @@
  */
 
 (function(angular) {
-  'use strict';
+	'use strict';
 
-  var app = angular.module('angular-elastic-builder');
+	var app = angular.module('angular-elastic-builder');
 
-  app.directive('elasticType', [
+	app.directive('elasticType', [
 
-    function() {
-      return {
-        scope: {
-          type: '=elasticType',
-          rule: '=',
-          guide: '=',
-        },
+	function() {
+		return {
+			scope : {
+				type : '=elasticType',
+				rule : '=',
+				guide : '=',
+			},
 
-        template: '<ng-include src="getTemplateUrl()" />',
+			template : '<ng-include src="getTemplateUrl()" />',
 
-        link: function(scope) {
-          scope.getTemplateUrl = function() {
-            var type = scope.type;
-            if (! type) return;
+			link : function(scope) {
+				scope.getTemplateUrl = function() {
+					var type = scope.type;
+					if (!type) return;
 
-            type = type.charAt(0).toUpperCase() + type.slice(1);
+					type = type.charAt(0).toUpperCase() + type.slice(1);
+					
+					return 'angular-elastic-builder/types/' + type + '.html';
+				};
 
-            return 'angular-elastic-builder/types/' + type + '.html';
-          };
+				
+				scope.booleans = [{ value : 'S', description : 'Sim' },
+				                  { value : 'N', description : 'Não' }];
 
-          // This is a weird hack to make sure these are numbers
-          scope.booleans = [ 'False', 'True' ];
-          scope.booleansOrder = [ 'True', 'False' ];
+				scope.inputNeeded =	function() {
+					var needs =	[ 'equals', 'notEquals', 'prefix', 'contains', 'last', 'next',
+					           	  'gt', 'gte', 'lt', 'lte' ];
+					return ~needs.indexOf(scope.rule.subType);
+				};
 
-          scope.inputNeeded = function() {
-            var needs = [
-              'equals',
-              'notEquals',
+				scope.dateNeeded = function() {
+					var needs = [ 'equals', 'gt', 'gte', 'lt', 'lte' ];
+					return ~needs.indexOf(scope.rule.subType);
+				};
 
-              'gt',
-              'gte',
-              'lt',
-              'lte',
-            ];
+				scope.numberNeeded = function() {
+					var needs = [ 'last', 'next' ];
+					return ~needs.indexOf(scope.rule.subType);
+				};
 
-            return ~needs.indexOf(scope.rule.subType);
-          };
-        },
-      };
-    }
+			},
 
-  ]);
+			controller : function($scope) {
+				$scope.uiSelectOptions = {
+					dropdownAutoWidth : true
+				};
+			}
+		};
+	}
+
+	]);
 
 })(window.angular);
 
@@ -352,201 +401,294 @@
  */
 
 (function(angular) {
-  'use strict';
+	'use strict';
 
-  angular.module('angular-elastic-builder')
-    .factory('elasticQueryService', [
-      function() {
+	angular.module('angular-elastic-builder').factory('elasticQueryService', [ function() {
 
-        return {
-          toFilters: toFilters,
-          toQuery: toQuery,
-        };
-      }
-    ]);
+		return {
+			toFilters : toFilters,
+			toQuery : toQuery,
+		};
+	} ]);
 
-  function toFilters(query, fieldMap){
-    var filters = query.map(parseQueryGroup.bind(query, fieldMap));
-    return filters;
-  }
+	function toFilters(query, fieldMap) {
+		var filters = query.map(parseQueryGroup.bind(query, fieldMap));
+		return filters;
+	}
 
-  function toQuery(filters, fieldMap){
-    var query = filters.map(parseFilterGroup.bind(filters, fieldMap)).filter(function(item) {
-      return !! item;
-    });
-    return query;
-  }
+	function toQuery(filters, fieldMap) {
+		var query = filters.map(parseFilterGroup.bind(filters, fieldMap)).filter(function(item) {
+			return !!item;
+		});
+		return query;
+	}
 
-  function parseQueryGroup(fieldMap, group, truthy) {
-    if (truthy !== false) truthy = true;
+	function parseQueryGroup(fieldMap, group, truthy) {
+		if (truthy !== false)
+			truthy = true;
 
-    var key = Object.keys(group)[0]
-      , typeMap = {
-        or: 'group',
-        and: 'group',
-        range: 'number',
-      }
-      , type = typeMap[key] || 'item'
-      , obj = getFilterTemplate(type);
+		var key = Object.keys(group)[0], typeMap = {
+			or : 'group',
+			and : 'group',
+			range : 'number',
+		}, type = typeMap[key] || 'item', obj = getFilterTemplate(type);
 
-    switch (key) {
-      case 'or':
-      case 'and':
-        obj.rules = group[key].map(parseQueryGroup.bind(group, fieldMap));
-        obj.subType = key;
-        break;
-      case 'missing':
-      case 'exists':
-        obj.field = group[key].field;
-        obj.subType = {
-          exists: 'exists',
-          missing: 'notExists',
-        }[key];
-        delete obj.value;
-        break;
-      case 'term':
-      case 'terms':
-        obj.field = Object.keys(group[key])[0];
-        var fieldData = fieldMap[Object.keys(group[key])[0]];
+		switch (key) {
+			case 'or':
+			case 'and':
+				obj.rules = group[key].map(parseQueryGroup.bind(group, fieldMap));
+				obj.subType = key;
+				break;
+				
+			case 'missing':
+			case 'exists':
+				obj.field = group[key].field;
+				obj.subType = { exists : 'exists', missing : 'notExists' }[key];
+				delete obj.value;
+				break;
+				
+			case 'term':
+			case 'terms':
+			case 'match':
+			case 'match_phrase_prefix':
+				obj.field = Object.keys(group[key])[0];
+				var fieldData = fieldMap[Object.keys(group[key])[0]];
+				obj.subType = truthy ? 'equals' : 'notEquals';
+				obj.value = group[key][obj.field];
+				break;
+				
+			case 'range':
+				obj.field = Object.keys(group[key])[0];
+				
+				if (angular.isNumber(group[key][obj.field][obj.subType])) {
+					obj.subType = Object.keys(group[key][obj.field])[0];
+					obj.value = group[key][obj.field][obj.subType];
+					
+				} else if (angular.isDefined(Object.keys(group[key][obj.field])[1])) {
+					var date = group[key][obj.field]['gte'];
+					
+					if (date.indexOf('now-') > -1) {
+						obj.subType = 'last';
+						obj.value = parseInt(date.split('now-')[1].split('d')[0]);
+					} else if (date.indexOf('now') > -1) {
+						obj.subType = 'next';
+						date = group[key][obj.field]['lte'];
+						obj.value = parseInt(date.split('now+')[1].split('d')[0]);
+					} else {
+						obj.subType = 'equals';
+						var parts = date.split(' ')[0].split('-');
+						obj.date = parts[2] + '/' + parts[1] + '/' + parts[0];
+					}
+				} else {
+					obj.subType = Object.keys(group[key][obj.field])[0];
+					
+					var date = group[key][obj.field][obj.subType];
+					var parts = date.split(' ')[0].split('-');
+					obj.date = parts[2] + '/' + parts[1] + '/' + parts[0];
+				}
+				break;
+				
+			case 'not':
+				obj = parseQueryGroup(fieldMap, group[key].filter, false);
+				break;
+				
+			default:
+				obj.field = Object.keys(group[key])[0];
+				break;
+		}
+		return obj;
+	}
 
-        if (fieldData.type === 'multi') {
-          var vals = group[key][obj.field];
-          if (typeof vals === 'string') vals = [ vals ];
-          obj.values = fieldData.choices.reduce(function(prev, choice) {
-            prev[choice] = truthy === (group[key][obj.field].indexOf(choice) > -1);
-            return prev;
-          }, {});
-        } else {
-          obj.subType = truthy ? 'equals' : 'notEquals';
-          obj.value = group[key][obj.field];
+	function parseFilterGroup(fieldMap, group) {
+		var obj = {};
+		if (group.type === 'group') {
+			obj[group.subType] = group.rules.map(parseFilterGroup.bind(group, fieldMap)).filter(function(item) {
+				return !!item;
+			});
+			return obj;
+		}
 
-          if (typeof obj.value === 'number') {
-            obj.subType = 'boolean';
-          }
-        }
-        break;
-      case 'range':
-        obj.field = Object.keys(group[key])[0];
-        obj.subType = Object.keys(group[key][obj.field])[0];
-        obj.value = group[key][obj.field][obj.subType];
-        break;
-      case 'not':
-        obj = parseQueryGroup(fieldMap, group[key].filter, false);
-        break;
-      default:
-        obj.field = Object.keys(group[key])[0];
-        break;
-    }
+		var fieldName = group.field;
+		var fieldData = fieldMap[fieldName];
 
-    return obj;
-  }
+		if (!fieldName || !group.subType) return;
+		
+		//Common subTypes
+		switch (group.subType) {
+			
+			case 'exists':
+				obj.exists = { field : fieldName };
+				break;
+			case 'notExists':
+				obj.missing = { field : fieldName };
+				break;
+			case 'equals':
+				if (fieldData.type === 'date') break;
+				if (isUndefinedOrNull(group.value)) return;
+				
+				if (angular.isArray(group.value)) {
+					obj.terms = {};
+					obj.terms[fieldName] = group.value;
+				} else {
+					obj.term = {};
+					obj.term[fieldName] = group.value;
+				}
+				break;
+			case 'notEquals':
+				if (isUndefinedOrNull(group.value)) return;
+				
+				if (angular.isArray(group.value)) {
+					obj.not = { filter : { terms : {}}};
+					obj.not.filter.terms[fieldName] = group.value;
+				} else {
+					obj.not = { filter : { term : {}}};
+					obj.not.filter.term[fieldName] = group.value;
+				}
+				break;	
+			
+		}
 
-  function parseFilterGroup(fieldMap, group) {
-    var obj = {};
-    if (group.type === 'group') {
-      obj[group.subType] = group.rules.map(parseFilterGroup.bind(group, fieldMap)).filter(function(item) {
-        return !! item;
-      });
-      return obj;
-    }
+		//Specific type rule
+		switch (fieldData.type) {
+			
+			case 'boolean':			
+			case 'term':				
+				switch (group.subType) {
+					case 'prefix':
+						if (isUndefinedOrNull(group.value)) return;
+						
+						obj.match_phrase_prefix = {};
+						obj.match_phrase_prefix[fieldName] = group.value;
+						break;
+					case 'contains':
+						if (isUndefinedOrNull(group.value)) return;
+						
+						obj.match = {};
+						obj.match[fieldName] = group.value;
+						break;
+				}
+				break;
 
-    var fieldName = group.field;
-    var fieldData = fieldMap[fieldName];
+			case 'number':
+				if (isNotNumber(group.value)) return;
+				if (group.subType === 'equals' || group.subType === 'notEquals') break; 
+				
+				obj.range = {};
+				obj.range[fieldName] = {};
+				obj.range[fieldName][group.subType] = group.value;
+				break;
 
+			case 'date':
+				switch(group.subType) {
+					case 'last':
+						if (isNotNumber(group.value)) return;
+						
+						obj.range = {};
+						obj.range[fieldName] = {};
+						obj.range[fieldName]['gte'] = 'now-' + group.value + 'd';
+						obj.range[fieldName]['lte'] = 'now';
+						break;
+					
+					case 'next':
+						if (isNotNumber(group.value)) return;
+						
+						obj.range = {};
+						obj.range[fieldName] = {};
+						obj.range[fieldName]['gte'] = 'now';
+						obj.range[fieldName]['lte'] = 'now+' + group.value + 'd';
+						break;
+					
+					case 'equals':
+						var parsed = validateDate(group.date);
+						if (!parsed) return;
+							
+						obj.range = {};
+						obj.range[fieldName] = {};
+						obj.range[fieldName]['gte'] = parsed + ' 00:00:00';
+						obj.range[fieldName]['lte'] = parsed + ' 23:59:59';
+						break;
+						
+					case 'gt':
+					case 'gte':
+						var parsed = validateDate(group.date);
+						if (!parsed) return;
+						
+						obj.range = {};
+						obj.range[fieldName] = {};
+						obj.range[fieldName][group.subType] = parsed + ' 00:00:00';
+						break;
+					
+					case 'lt':
+					case 'lte':
+						var parsed = validateDate(group.date);
+						if (!parsed) return;
+						
+						obj.range = {};
+						obj.range[fieldName] = {};
+						obj.range[fieldName][group.subType] = parsed + ' 23:59:59';
+						break;
+				}
+				break;
+				
+			case 'multi':
+				break;
+				
+			default:
+				throw new Error('Unexpected type');
+		}
+		return obj;
+	}
 
-    if (! fieldName) return;
+	function getFilterTemplate(type) {
+		var templates = {
+			group : {
+				type : 'group',
+				subType : '',
+				rules : [],
+			},
+			item : {
+				field : '',
+				subType : '',
+				value : '',
+			},
+			number : {
+				field : '',
+				subType : '',
+				value : null,
+			}
+		};
 
-    switch (fieldData.type) {
-      case 'term':
-        if (fieldData.subType === 'boolean') group.subType = 'boolean';
+		return angular.copy(templates[type]);
+	}
+	
+	function isNotNumber(value) {
+		return value === undefined || value === null || Number.isNaN(value);
+	}
+	
+	function isUndefinedOrNull(value) {
+		return value === undefined || value === null;
+	}
+	
+	function validateDate(date) {
+		if (!angular.isString(date)) return false;
+		
+		var parts = date.split("/");
+		var formatedDate = parts[2] + '-' + parts[1] + '-' + parts[0];
+		var time = Date.parse(formatedDate);
+		
+		if (Number.isNaN(time)) return false;
 
-        if (! group.subType) return;
-        switch (group.subType) {
-          case 'equals':
-          case 'boolean':
-            if (group.value === undefined) return;
-            obj.term = {};
-            obj.term[fieldName] = group.value;
-            break;
-          case 'notEquals':
-            if (group.value === undefined) return;
-            obj.not = { filter: { term: {}}};
-            obj.not.filter.term[fieldName] = group.value;
-            break;
-          case 'exists':
-            obj.exists = { field: fieldName };
-            break;
-          case 'notExists':
-            obj.missing = { field: fieldName };
-            break;
-          default:
-            throw new Error('unexpected subtype ' + group.subType);
-        }
-        break;
-
-      case 'number':
-        obj.range = {};
-        obj.range[fieldName] = {};
-        obj.range[fieldName][group.subType] = group.value;
-        break;
-
-      case 'date':
-        if (group.subType === 'exists') {
-          obj.exists = { field: fieldName };
-        } else if (group.subType === 'notExists') {
-          obj.missing = { field: fieldName };
-        } else {
-          throw new Error('unexpected subtype');
-        }
-
-        break;
-
-      case 'multi':
-        obj.terms = {};
-        obj.terms[fieldName] = Object.keys(group.values || {}).reduce(function(prev, key) {
-          if (group.values[key]) prev.push(key);
-
-          return prev;
-        }, []);
-        break;
-
-      default:
-        throw new Error('unexpected type');
-    }
-
-    return obj;
-  }
-
-  function getFilterTemplate(type) {
-    var templates = {
-      group: {
-        type: 'group',
-        subType: '',
-        rules: [],
-      },
-      item: {
-        field: '',
-        subType: '',
-        value: '',
-      },
-      number: {
-        field: '',
-        subType: '',
-        value: null,
-      }
-    };
-
-    return angular.copy(templates[type]);
-  }
+		return formatedDate;
+	}
 
 })(window.angular);
 
-(function(angular) {"use strict"; angular.module("angular-elastic-builder").run(["$templateCache", function($templateCache) {$templateCache.put("angular-elastic-builder/BuilderDirective.html","<div class=\"elastic-builder\">\n  <div class=\"filter-panels\">\n    <div class=\"list-group form-inline\">\n      <div\n        data-ng-repeat=\"filter in filters\"\n        data-elastic-builder-chooser=\"filter\"\n        data-elastic-fields=\"data.fields\"\n        data-on-remove=\"removeChild($index)\"\n        data-depth=\"0\"></div>\n      <div class=\"list-group-item actions\">\n        <a class=\"btn btn-xs btn-primary\" title=\"Add Rule\" data-ng-click=\"addRule()\">\n          <i class=\"fa fa-plus\"></i>\n        </a>\n        <a class=\"btn btn-xs btn-primary\" title=\"Add Group\" data-ng-click=\"addGroup()\">\n          <i class=\"fa fa-list\"></i>\n        </a>\n      </div>\n    </div>\n  </div>\n</div>\n");
-$templateCache.put("angular-elastic-builder/ChooserDirective.html","<div\n  class=\"list-group-item elastic-builder-chooser\"\n  data-ng-class=\"getGroupClassName()\">\n\n  <div data-ng-if=\"item.type === \'group\'\"\n    data-elastic-builder-group=\"item\"\n    data-depth=\"{{ depth }}\"\n    data-elastic-fields=\"elasticFields\"\n    data-on-remove=\"onRemove()\"></div>\n\n  <div data-ng-if=\"item.type !== \'group\'\"\n    data-elastic-builder-rule=\"item\"\n    data-elastic-fields=\"elasticFields\"\n    data-on-remove=\"onRemove()\"></div>\n\n</div>\n");
-$templateCache.put("angular-elastic-builder/GroupDirective.html","<div class=\"elastic-builder-group\">\n  <h5>If\n    <select data-ng-model=\"group.subType\" class=\"form-control\">\n      <option value=\"and\">all</option>\n      <option value=\"or\">any</option>\n    </select>\n    of these conditions are met\n  </h5>\n  <div\n    data-ng-repeat=\"rule in group.rules\"\n    data-elastic-builder-chooser=\"rule\"\n    data-elastic-fields=\"elasticFields\"\n    data-depth=\"{{ +depth + 1 }}\"\n    data-on-remove=\"removeChild($index)\"></div>\n\n  <div class=\"list-group-item actions\" data-ng-class=\"getGroupClassName()\">\n    <a class=\"btn btn-xs btn-primary\" title=\"Add Sub-Rule\" data-ng-click=\"addRule()\">\n      <i class=\"fa fa-plus\"></i>\n    </a>\n    <a class=\"btn btn-xs btn-primary\" title=\"Add Sub-Group\" data-ng-click=\"addGroup()\">\n      <i class=\"fa fa-list\"></i>\n    </a>\n  </div>\n\n  <a class=\"btn btn-xs btn-danger remover\" data-ng-click=\"onRemove()\">\n    <i class=\"fa fa-minus\"></i>\n  </a>\n</div>\n");
-$templateCache.put("angular-elastic-builder/RuleDirective.html","<div class=\"elastic-builder-rule\">\n  <select class=\"form-control\" data-ng-model=\"rule.field\" data-ng-options=\"key as key for (key, value) in elasticFields\"></select>\n\n  <span data-elastic-type=\"getType()\" data-rule=\"rule\" data-guide=\"elasticFields[rule.field]\"></span>\n\n  <a class=\"btn btn-xs btn-danger remover\" data-ng-click=\"onRemove()\">\n    <i class=\"fa fa-minus\"></i>\n  </a>\n\n</div>\n");
-$templateCache.put("angular-elastic-builder/types/Boolean.html","<span class=\"boolean-rule\">\n  Equals\n\n  <!-- This is a weird hack to make sure these are numbers -->\n  <select\n    data-ng-model=\"rule.value\"\n    class=\"form-control\"\n    data-ng-options=\"booleans.indexOf(choice) as choice for choice in booleansOrder\">\n  </select>\n</span>\n");
-$templateCache.put("angular-elastic-builder/types/Date.html","<span class=\"date-rule\">\n  <select data-ng-model=\"rule.subType\" class=\"form-control\">\n\n    <optgroup label=\"Generic\">\n      <option value=\"exists\">Exists</option>\n      <option value=\"notExists\">! Exists</option>\n    </optgroup>\n  </select>\n\n</span>\n");
-$templateCache.put("angular-elastic-builder/types/Multi.html","<span class=\"multi-rule\">\n  <span data-ng-repeat=\"choice in guide.choices\">\n    <label class=\"checkbox\">\n      <input type=\"checkbox\" data-ng-model=\"rule.values[choice]\">\n      {{ choice }}\n    </label>\n  </span>\n</span>\n");
-$templateCache.put("angular-elastic-builder/types/Number.html","<span class=\"number-rule\">\n  <select data-ng-model=\"rule.subType\" class=\"form-control\">\n    <optgroup label=\"Numeral\">\n      <option value=\"equals\">=</option>\n      <option value=\"gt\">&gt;</option>\n      <option value=\"gte\">&ge;</option>\n      <option value=\"lt\">&lt;</option>\n      <option value=\"lte\">&le;</option>\n    </optgroup>\n\n    <optgroup label=\"Generic\">\n      <option value=\"exists\">Exists</option>\n      <option value=\"notExists\">! Exists</option>\n    </optgroup>\n  </select>\n\n  <!-- Range Fields -->\n  <input data-ng-if=\"inputNeeded()\"\n    class=\"form-control\"\n    data-ng-model=\"rule.value\"\n    type=\"number\"\n    min=\"{{ guide.minimum }}\"\n    max=\"{{ guide.maximum }}\">\n</span>\n");
-$templateCache.put("angular-elastic-builder/types/Term.html","<span class=\"elastic-term\">\n  <select data-ng-model=\"rule.subType\" class=\"form-control\">\n    <!-- Term Options -->\n    <optgroup label=\"Text\">\n      <option value=\"equals\">Equals</option>\n      <option value=\"notEquals\">! Equals</option>\n    </optgroup>\n\n    <!-- Generic Options -->\n    <optgroup label=\"Generic\">\n      <option value=\"exists\">Exists</option>\n      <option value=\"notExists\">! Exists</option>\n    </optgroup>\n\n  </select>\n  <input\n    data-ng-if=\"inputNeeded()\"\n    class=\"form-control\"\n    data-ng-model=\"rule.value\"\n    type=\"text\">\n</span>\n");}]);})(window.angular);
+(function(angular) {"use strict"; angular.module("angular-elastic-builder").run(["$templateCache", function($templateCache) {$templateCache.put("angular-elastic-builder/BuilderDirective.html","<div class=\"elastic-builder\">\r\n  <div class=\"filter-panels\">\r\n    <div class=\"list-group form-inline\">\r\n      <div\r\n        data-ng-repeat=\"filter in filters\"\r\n        data-elastic-builder-chooser=\"filter\"\r\n        data-elastic-fields=\"data.fields\"\r\n        data-on-remove=\"removeChild($index)\"\r\n        data-depth=\"0\"></div>\r\n      <div class=\"list-group-item actions\">\r\n        <a class=\"btn btn-xs btn-primary\" title=\"Add Rule\" data-ng-click=\"addRule()\">\r\n          <i class=\"fa fa-plus\"></i>\r\n        </a>\r\n        <a class=\"btn btn-xs btn-primary\" title=\"Add Group\" data-ng-click=\"addGroup()\">\r\n          <i class=\"fa fa-list\"></i>\r\n        </a>\r\n      </div>\r\n    </div>\r\n  </div>\r\n</div>\r\n");
+$templateCache.put("angular-elastic-builder/ChooserDirective.html","<div\r\n  class=\"list-group-item elastic-builder-chooser\"\r\n  data-ng-class=\"getGroupClassName()\">\r\n\r\n  <div data-ng-if=\"item.type === \'group\'\"\r\n    data-elastic-builder-group=\"item\"\r\n    data-depth=\"{{ depth }}\"\r\n    data-elastic-fields=\"elasticFields\"\r\n    data-on-remove=\"onRemove()\"></div>\r\n\r\n  <div data-ng-if=\"item.type !== \'group\'\"\r\n    data-elastic-builder-rule=\"item\"\r\n    data-elastic-fields=\"elasticFields\"\r\n    data-on-remove=\"onRemove()\"></div>\r\n\r\n</div>\r\n");
+$templateCache.put("angular-elastic-builder/GroupDirective.html","<div class=\"elastic-builder-group\">\r\n  <h7>Se\r\n    <select data-ng-model=\"group.subType\" ui-select2>\r\n      <option value=and>todas</option>\r\n      <option value=\"or\">alguma</option>\r\n    </select>\r\n    (d)as condi&ccedil;&otilde;es forem satisfeitas\r\n  </h7>\r\n  <div\r\n    data-ng-repeat=\"rule in group.rules\"\r\n    data-elastic-builder-chooser=\"rule\"\r\n    data-elastic-fields=\"elasticFields\"\r\n    data-depth=\"{{ +depth + 1 }}\"\r\n    data-on-remove=\"removeChild($index)\"></div>\r\n\r\n  <div class=\"list-group-item actions\" data-ng-class=\"getGroupClassName()\">\r\n    <a class=\"btn btn-xs btn-primary\" title=\"Adicionar regra\" data-ng-click=\"addRule()\">\r\n      <i class=\"fa fa-plus\"></i>\r\n    </a>\r\n    <a class=\"btn btn-xs btn-primary\" title=\"Adicionar grupo\" data-ng-click=\"addGroup()\">\r\n      <i class=\"fa fa-list\"></i>\r\n    </a>\r\n    <a class=\"btn btn-xs btn-danger remover\" data-ng-click=\"onRemove()\">\r\n      <i class=\"fa fa-minus\"></i>\r\n    </a>\r\n  </div>\r\n\r\n</div>\r\n");
+$templateCache.put("angular-elastic-builder/RuleDirective.html","<div class=\"elastic-builder-rule\">\r\n  <select data-ui-select2=\"uiSelectOptions\" data-ng-model=\"rule.field\" data-ng-change=\"initRule()\">\r\n  	<option data-ng-repeat=\"(key, value) in elasticFields\" value=\"{{ key }}\">{{ value.description }}</option>\r\n  </select>\r\n\r\n  <span data-elastic-type=\"getType()\" data-rule=\"rule\" data-guide=\"elasticFields[rule.field]\"></span>\r\n\r\n  <a class=\"btn btn-xs btn-danger remover\" data-ng-click=\"onRemove()\">\r\n    <i class=\"fa fa-minus\"></i>\r\n  </a>\r\n\r\n</div>\r\n");
+$templateCache.put("angular-elastic-builder/types/Boolean.html","<span class=\"boolean-rule\">\r\n  <select data-ng-model=\"rule.subType\" data-ui-select2=\"uiSelectOptions\">\r\n    <!-- Term Options -->\r\n    <optgroup label=\"Texto\">\r\n      <option value=\"equals\">Igual</option>\r\n    </optgroup>\r\n\r\n    <!-- Generic Options -->\r\n    <optgroup label=\"Gen&eacute;rico\">\r\n      <option value=\"exists\">Existe</option>\r\n      <option value=\"notExists\">N&atilde;o existe</option>\r\n    </optgroup>\r\n  </select>\r\n\r\n  <select data-ui-select2=\"uiSelectOptions\" data-ng-if=\"inputNeeded()\" data-ng-model=\"rule.value\">\r\n	<option data-ng-repeat=\"choice in booleans\" value=\"{{ choice.value }}\">{{ choice.description }}</option>\r\n  </select>\r\n</span>\r\n");
+$templateCache.put("angular-elastic-builder/types/Date.html","<span class=\"date-rule\">\r\n  <select data-ng-model=\"rule.subType\" data-ui-select2=\"uiSelectOptions\">\r\n\r\n    <optgroup label=\"Per&iacute;odo\">\r\n      <option value=\"last\">Nos &uacute;ltimos</option>\r\n      <option value=\"next\">Nos pr&oacute;ximos</option>\r\n    </optgroup>\r\n\r\n    <optgroup label=\"Data\">\r\n      <option value=\"equals\">=</option>\r\n      <option value=\"gt\">&gt;</option>\r\n      <option value=\"gte\">&ge;</option>\r\n      <option value=\"lt\">&lt;</option>\r\n      <option value=\"lte\">&le;</option>\r\n    </optgroup>\r\n\r\n    <optgroup label=\"Gen&eacute;rico\">\r\n      <option value=\"exists\">Existe</option>\r\n      <option value=\"notExists\">N&atilde;o existe</option>\r\n    </optgroup>\r\n  </select>\r\n\r\n  <span data-ng-if=\"numberNeeded()\"><input type=\"number\" class=\"form-control\"\r\n    data-ng-model=\"rule.value\" min=0 size=\"3\" /> dias</span>\r\n\r\n  <input type=\"text\" class=\"form-control\" data-ng-if=\"dateNeeded()\" data-provide=\"datepicker\" data-date-format=\"dd/mm/yyyy\"\r\n    data-ng-model=\"rule.date\" data-ng-init=\"init(rule.date,\'\')\" />\r\n\r\n</span>\r\n");
+$templateCache.put("angular-elastic-builder/types/Multi.html","<span class=\"multi-rule\">\r\n  <select data-ng-model=\"rule.subType\" data-ui-select2=\"uiSelectOptions\">\r\n  \r\n    <optgroup label=\"Texto\">\r\n      <option value=\"equals\">Igual</option>\r\n      <option value=\"notEquals\">Diferente</option>\r\n    </optgroup>\r\n    \r\n    <optgroup label=\"Gen&eacute;rico\">\r\n      <option value=\"exists\">Existe</option>\r\n      <option value=\"notExists\">N&atilde;o existe</option>\r\n    </optgroup>\r\n  </select>\r\n  <select multiple=\"multiple\" data-ui-select2=\"uiSelectOptions\"\r\n  	data-ng-multiple=\"true\" data-ng-if=\"inputNeeded()\" data-ng-model=\"rule.value\">\r\n	<option data-ng-repeat=\"choice in guide.choices\" value=\"{{ choice.value }}\">{{ choice.description }}</option>\r\n  </select>\r\n</span>\r\n");
+$templateCache.put("angular-elastic-builder/types/Number.html","<span class=\"number-rule\">\r\n  <select data-ng-model=\"rule.subType\" data-ui-select2=\"uiSelectOptions\">\r\n    <optgroup label=\"Numeral\">\r\n      <option value=\"equals\">=</option>\r\n      <option value=\"notEquals\">!=</option>\r\n      <option value=\"gt\">&gt;</option>\r\n      <option value=\"gte\">&ge;</option>\r\n      <option value=\"lt\">&lt;</option>\r\n      <option value=\"lte\">&le;</option>\r\n    </optgroup>\r\n\r\n    <optgroup label=\"Gen&eacute;rico\">\r\n      <option value=\"exists\">Existe</option>\r\n      <option value=\"notExists\">N&atilde;o existe</option>\r\n    </optgroup>\r\n  </select>\r\n\r\n  <!-- Range Fields -->\r\n  <input type=\"number\" class=\"form-control\" data-ng-if=\"inputNeeded()\"\r\n    data-ng-model=\"rule.value\" min=\"{{ guide.minimum }}\" max=\"{{ guide.maximum }}\" />\r\n</span>\r\n");
+$templateCache.put("angular-elastic-builder/types/Term.html","<span class=\"elastic-term\">\r\n  <select data-ng-model=\"rule.subType\" data-ui-select2=\"uiSelectOptions\">\r\n    <!-- Term Options -->\r\n    <optgroup label=\"Texto\">\r\n      <option value=\"equals\">Igual</option>\r\n      <option value=\"notEquals\">Diferente</option>\r\n      <option value=\"prefix\">Come&ccedil;a</option>\r\n      <option value=\"contains\">Cont&eacute;m</option>\r\n    </optgroup>\r\n\r\n    <!-- Generic Options -->\r\n    <optgroup label=\"Gen&eacute;rico\">\r\n      <option value=\"exists\">Existe</option>\r\n      <option value=\"notExists\">N&atilde;o existe</option>\r\n    </optgroup>\r\n\r\n  </select>\r\n  <input class=\"form-control\" type=\"text\" data-ng-if=\"inputNeeded()\"\r\n   data-ng-model=\"rule.value\" />\r\n</span>\r\n");}]);})(window.angular);

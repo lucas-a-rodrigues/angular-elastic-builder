@@ -1,10 +1,18 @@
 <span class="boolean-rule">
-  Equals
+  <select data-ng-model="rule.subType" data-ui-select2="uiSelectOptions">
+    <!-- Term Options -->
+    <optgroup label="Texto">
+      <option value="equals">Igual</option>
+    </optgroup>
 
-  <!-- This is a weird hack to make sure these are numbers -->
-  <select
-    data-ng-model="rule.value"
-    class="form-control"
-    data-ng-options="booleans.indexOf(choice) as choice for choice in booleansOrder">
+    <!-- Generic Options -->
+    <optgroup label="Gen&eacute;rico">
+      <option value="exists">Existe</option>
+      <option value="notExists">N&atilde;o existe</option>
+    </optgroup>
+  </select>
+
+  <select data-ui-select2="uiSelectOptions" data-ng-if="inputNeeded()" data-ng-model="rule.value">
+	<option data-ng-repeat="choice in booleans" value="{{ choice.value }}">{{ choice.description }}</option>
   </select>
 </span>

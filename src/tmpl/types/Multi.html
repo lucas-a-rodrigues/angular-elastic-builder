@@ -1,8 +1,18 @@
 <span class="multi-rule">
-  <span data-ng-repeat="choice in guide.choices">
-    <label class="checkbox">
-      <input type="checkbox" data-ng-model="rule.values[choice]">
-      {{ choice }}
-    </label>
-  </span>
+  <select data-ng-model="rule.subType" data-ui-select2="uiSelectOptions">
+  
+    <optgroup label="Texto">
+      <option value="equals">Igual</option>
+      <option value="notEquals">Diferente</option>
+    </optgroup>
+    
+    <optgroup label="Gen&eacute;rico">
+      <option value="exists">Existe</option>
+      <option value="notExists">N&atilde;o existe</option>
+    </optgroup>
+  </select>
+  <select multiple="multiple" data-ui-select2="uiSelectOptions"
+  	data-ng-multiple="true" data-ng-if="inputNeeded()" data-ng-model="rule.value">
+	<option data-ng-repeat="choice in guide.choices" value="{{ choice.value }}">{{ choice.description }}</option>
+  </select>
 </span>
