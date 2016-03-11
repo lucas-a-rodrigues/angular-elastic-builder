@@ -55,19 +55,28 @@
 				
 			case 'term':
 			case 'terms':
-			case 'match':
-			case 'match_phrase_prefix':
 				obj.field = Object.keys(group[key])[0];
-				var fieldData = fieldMap[Object.keys(group[key])[0]];
 				obj.subType = truthy ? 'equals' : 'notEquals';
+				obj.value = group[key][obj.field];
+				break;
+				
+			case 'regexp':
+				obj.field = Object.keys(group[key])[0];
+				obj.subType = 'contains';
+				obj.value = group[key][obj.field].replace(".*[", "").replace("].*", "");
+				break;
+				
+			case 'prefix':
+				obj.field = Object.keys(group[key])[0];
+				obj.subType = 'prefix';
 				obj.value = group[key][obj.field];
 				break;
 				
 			case 'range':
 				obj.field = Object.keys(group[key])[0];
+				obj.subType = Object.keys(group[key][obj.field])[0];
 				
 				if (angular.isNumber(group[key][obj.field][obj.subType])) {
-					obj.subType = Object.keys(group[key][obj.field])[0];
 					obj.value = group[key][obj.field][obj.subType];
 					
 				} else if (angular.isDefined(Object.keys(group[key][obj.field])[1])) {
@@ -86,8 +95,6 @@
 						obj.date = parts[2] + '/' + parts[1] + '/' + parts[0];
 					}
 				} else {
-					obj.subType = Object.keys(group[key][obj.field])[0];
-					
 					var date = group[key][obj.field][obj.subType];
 					var parts = date.split(' ')[0].split('-');
 					obj.date = parts[2] + '/' + parts[1] + '/' + parts[0];
@@ -163,14 +170,14 @@
 					case 'prefix':
 						if (isUndefinedOrNull(group.value)) return;
 						
-						obj.match_phrase_prefix = {};
-						obj.match_phrase_prefix[fieldName] = group.value;
+						obj.prefix = {};
+						obj.prefix[fieldName] = group.value;
 						break;
 					case 'contains':
 						if (isUndefinedOrNull(group.value)) return;
 						
-						obj.match = {};
-						obj.match[fieldName] = group.value;
+						obj.regexp = {};
+						obj.regexp[fieldName] = ".*[" + group.value + "].*";
 						break;
 				}
 				break;
