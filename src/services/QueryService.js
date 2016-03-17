@@ -91,12 +91,12 @@
 						obj.value = parseInt(date.split('now+')[1].split('d')[0]);
 					} else {
 						obj.subType = 'equals';
-						var parts = date.split(' ')[0].split('-');
+						var parts = date.split('T')[0].split('-');
 						obj.date = parts[2] + '/' + parts[1] + '/' + parts[0];
 					}
 				} else {
 					var date = group[key][obj.field][obj.subType];
-					var parts = date.split(' ')[0].split('-');
+					var parts = date.split('T')[0].split('-');
 					obj.date = parts[2] + '/' + parts[1] + '/' + parts[0];
 				}
 				break;
@@ -217,8 +217,8 @@
 							
 						obj.range = {};
 						obj.range[fieldName] = {};
-						obj.range[fieldName]['gte'] = parsed + ' 00:00:00';
-						obj.range[fieldName]['lte'] = parsed + ' 23:59:59';
+						obj.range[fieldName]['gte'] = parsed + 'T00:00:00';
+						obj.range[fieldName]['lte'] = parsed + 'T23:59:59';
 						break;
 						
 					case 'gt':
@@ -228,7 +228,7 @@
 						
 						obj.range = {};
 						obj.range[fieldName] = {};
-						obj.range[fieldName][group.subType] = parsed + ' 00:00:00';
+						obj.range[fieldName][group.subType] = parsed + 'T00:00:00';
 						break;
 					
 					case 'lt':
@@ -238,7 +238,7 @@
 						
 						obj.range = {};
 						obj.range[fieldName] = {};
-						obj.range[fieldName][group.subType] = parsed + ' 23:59:59';
+						obj.range[fieldName][group.subType] = parsed + 'T23:59:59';
 						break;
 				}
 				break;
