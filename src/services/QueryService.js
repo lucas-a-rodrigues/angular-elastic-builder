@@ -63,7 +63,7 @@
 			case 'regexp':
 				obj.field = Object.keys(group[key])[0];
 				obj.subType = 'contains';
-				obj.value = group[key][obj.field].replace(".*[", "").replace("].*", "");
+				obj.value = group[key][obj.field].replace(".*", "").replace("(?i)", "");
 				break;
 				
 			case 'prefix':
@@ -177,7 +177,7 @@
 						if (isUndefinedOrNull(group.value)) return;
 						
 						obj.regexp = {};
-						obj.regexp[fieldName] = ".*[" + group.value + "].*";
+						obj.regexp[fieldName] = ".*(?i)" + group.value + ".*";
 						break;
 				}
 				break;
